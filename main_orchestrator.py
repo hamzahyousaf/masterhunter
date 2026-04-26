@@ -20,6 +20,12 @@ def send_telegram(message):
     token = os.environ.get("TELEGRAM_TOKEN")
     chat_id = os.environ.get("CHAT_ID")
     
+    # Debug print
+    print(f"DEBUG: token exists = {token is not None}")
+    print(f"DEBUG: chat_id exists = {chat_id is not None}")
+    print(f"DEBUG: token = {token[:10] if token else 'None'}...")
+    print(f"DEBUG: chat_id = {chat_id}")
+    
     if not token or not chat_id:
         print("⚠️ TELEGRAM_TOKEN or CHAT_ID not set in secrets")
         return False
@@ -32,11 +38,13 @@ def send_telegram(message):
             'parse_mode': 'HTML'
         }
         response = requests.post(url, json=payload, timeout=15)
+        
         if response.status_code == 200:
             print("✅ Telegram message sent!")
             return True
         else:
             print(f"❌ Telegram error: {response.status_code}")
+            print(f"   Response: {response.text[:200]}")
             return False
     except Exception as e:
         print(f"❌ Telegram exception: {e}")
@@ -113,7 +121,11 @@ if __name__ == "__main__":
     print("  ✅ Scan complete!")
     print("="*60)
     
-    # Send to Telegram
+    # Send test message first
+    print("\n📤 Sending test message to Telegram...")
+    send_telegram("✅ Dropshipping Scanner is running! Processing products...")
+    
+    # Send top products
     if top_products:
         msg = "🏆 <b>TOP PRODUCTS TODAY</b>\n\n"
         for i, p in enumerate(top_products[:3], 1):
