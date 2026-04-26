@@ -1,6 +1,7 @@
 # google_trends_agent.py - REAL DATA VERSION
 from pytrends.request import TrendReq
 import pandas as pd
+from datetime import datetime
 
 class GoogleTrendsAgent:
     def __init__(self):
@@ -23,27 +24,27 @@ class GoogleTrendsAgent:
                 "current_season": self._detect_season(),
                 "hot_categories": categories,
                 "rising_searches": top_trends[:5],
-                "timestamp": pd.Timestamp.now().isoformat()
+                "timestamp": datetime.now().isoformat()
             }
         except Exception as e:
-            print(f"Google Trends error: {e}")
+            print(f"⚠️ Google Trends error: {e}")
             return self._get_fallback_data()
     
     def _detect_categories(self, trends):
         categories = []
-        kitchen_keywords = ['recipe', 'cook', 'kitchen', 'food', 'meal', 'dinner']
-        cooling_keywords = ['fan', 'cool', 'ac', 'ice', 'summer']
+        kitchen_keywords = ['recipe', 'cook', 'kitchen', 'food', 'meal', 'dinner', 'chopper', 'blender']
+        cooling_keywords = ['fan', 'cool', 'ac', 'ice', 'summer', 'cold', 'freeze']
         
         for trend in trends:
-            if any(k in trend.lower() for k in kitchen_keywords):
+            trend_lower = str(trend).lower()
+            if any(k in trend_lower for k in kitchen_keywords):
                 categories.append("kitchen_gadgets")
-            if any(k in trend.lower() for k in cooling_keywords):
+            if any(k in trend_lower for k in cooling_keywords):
                 categories.append("cooling_gadgets")
         
         return list(set(categories)) or ["general"]
     
     def _detect_season(self):
-        from datetime import datetime
         month = datetime.now().month
         if 5 <= month <= 9:
             return "summer"
@@ -56,5 +57,6 @@ class GoogleTrendsAgent:
         return {
             "current_season": "summer",
             "hot_categories": ["cooling_gadgets", "kitchen_appliances"],
-            "rising_searches": ["ice maker", "portable fan", "vegetable chopper"]
+            "rising_searches": ["ice maker", "portable fan", "vegetable chopper"],
+            "timestamp": datetime.now().isoformat()
         }
