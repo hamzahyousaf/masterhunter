@@ -2,6 +2,7 @@
 import sys
 import os
 import json
+import requests
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -11,6 +12,39 @@ from agents.aliexpress_agent import AliExpressScraper
 from agents.tiktok_agent import TikTokViralAgent
 from agents.google_trends_agent import GoogleTrendsAgent
 
+# ============================================================
+# TELEGRAM SENDER FUNCTION
+# ============================================================
+def send_telegram(message):
+    """Send message to Telegram"""
+    token = os.environ.get("TELEGRAM_TOKEN")
+    chat_id = os.environ.get("CHAT_ID")
+    
+    if not token or not chat_id:
+        print("⚠️ TELEGRAM_TOKEN or CHAT_ID not set in secrets")
+        return False
+    
+    try:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {
+            'chat_id': chat_id,
+            'text': message,
+            'parse_mode': 'HTML'
+        }
+        response = requests.post(url, json=payload, timeout=15)
+        if response.status_code == 200:
+            print("✅ Telegram message sent!")
+            return True
+        else:
+            print(f"❌ Telegram error: {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"❌ Telegram exception: {e}")
+        return False
+
+# ============================================================
+# ORCHESTRATOR
+# ============================================================
 class Orchestrator:
     def __init__(self):
         print("="*60)
@@ -62,12 +96,34 @@ class Orchestrator:
             print(f"   Score: {p.get('score', 0)}/100")
             print(f"   Factors: {', '.join(p.get('factors_used', []))}")
         
+        # Save to file
         with open("latest_products.json", "w") as f:
             json.dump(top, f, indent=2)
         
         return top
 
+# ============================================================
+# MAIN
+# ============================================================
 if __name__ == "__main__":
     orch = Orchestrator()
-    orch.run_full_scan()
-    print("\n✅ Scan complete!")
+    top_products = orch.run_full_scan()
+    
+    print("\n" + "="*60)
+    print("  ✅ Scan complete!")
+    print("="*60)
+    
+    # Send to Telegram
+    if top_products:
+        msg = "🏆 <b>TOP PRODUCTS TODAY</b>\n\n"
+        for i, p in enumerate(top_products[:3], 1):
+            msg += f"{i}. <b>{p.get('name', 'Unknown')}</b>\n"
+            msg += f"   💰 Price: AED {p.get('price', 0)}\n"
+            msg += f"   📊 Score: {p.get('score', 0)}/100\n"
+            msg += f"   ✅ Factors: {', '.join(p.get('factors_used', []))}\n\n"
+        
+        send_telegram(msg)
+    else:
+        send_telegram("⚠️ No products found in today's scan.")
+    
+    print("\n✅ Done!")
