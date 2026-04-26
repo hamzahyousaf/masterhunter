@@ -1,10 +1,10 @@
 # main_orchestrator.py
 import sys
 import os
+import json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# SAHI PATHS (folders ke saath)
 from agents.master_hunter import MasterProductHunter
 from agents.zambeel_agent import ZambeelScraper
 from agents.aliexpress_agent import AliExpressScraper
@@ -60,9 +60,8 @@ class Orchestrator:
             print(f"\n{i}. {p.get('name', 'Unknown')}")
             print(f"   Price: AED {p.get('price', 0)}")
             print(f"   Score: {p.get('score', 0)}/100")
+            print(f"   Factors: {', '.join(p.get('factors_used', []))}")
         
-        # Save to file for Telegram
-        import json
         with open("latest_products.json", "w") as f:
             json.dump(top, f, indent=2)
         
