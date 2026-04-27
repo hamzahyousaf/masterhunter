@@ -11,7 +11,7 @@ from agents.zambeel_agent import ZambeelScraper
 from agents.aliexpress_agent import AliExpressScraper
 from agents.tiktok_agent import TikTokViralAgent
 from agents.google_trends_agent import GoogleTrendsAgent
-from agents.trends_agent import TrendsAgent
+from agents.omkar_amazon_agent import OmkarAmazonAgent
 
 # ============================================================
 # TELEGRAM SENDER FUNCTION
@@ -57,7 +57,7 @@ class Orchestrator:
         self.aliexpress = AliExpressScraper()
         self.tiktok = TikTokViralAgent()
         self.google = GoogleTrendsAgent()
-        self.trends = TrendsAgent()
+        self.amazon = OmkarAmazonAgent()
         
         print("\n✅ All agents initialized!\n")
     
@@ -89,11 +89,11 @@ class Orchestrator:
         trends_data = self.google.get_uae_trends()
         print(f"   ✅ UAE Trends: {trends_data['hot_categories']}")
         
-        # Amazon Trends (new!)
-        trends_products = self.trends.get_trending_products()
-        trends_formatted = self.trends.get_formatted_for_master()
-        self.master.add_products_batch(trends_formatted)
-        print(f"   ✅ Added {len(trends_products)} products from Amazon Trends")
+        # Omkar Amazon (NEW!)
+        amazon_products = self.amazon.search_products()
+        amazon_formatted = self.amazon.get_formatted_for_master()
+        self.master.add_products_batch(amazon_formatted)
+        print(f"   ✅ Added {len(amazon_products)} products from Omkar Amazon")
         
         # Score and rank
         print("\n📊 STEP 2: Scoring products...\n")
@@ -126,10 +126,9 @@ if __name__ == "__main__":
     print("  ✅ Scan complete!")
     print("="*60)
     
-    # Send test message first
+    # Send to Telegram
     print("\n📤 Sending products to Telegram...")
     
-    # Send top products
     if top_products:
         msg = "🏆 <b>TOP PRODUCTS TODAY</b>\n\n"
         for i, p in enumerate(top_products[:3], 1):
