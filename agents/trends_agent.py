@@ -5,8 +5,12 @@ import os
 class TrendsAgent:
     def __init__(self):
         self.name = "Amazon Trends Agent"
-        # YAHAN APNI API KEY DALO
+        # YAHAN APNI API KEY DALO (direct ya environment variable se)
+        # Option 1: Direct dalo
         self.client = TrendsMcpClient(api_key="tmcp_live_mjpie2keav57683j120689suqr76furm")
+        # Option 2: Environment variable se (GitHub Secrets ke liye)
+        # api_key = os.environ.get("TRENDS_API_KEY")
+        # self.client = TrendsMcpClient(api_key=api_key)
     
     def get_trending_products(self, limit=10):
         """Get trending products from Amazon"""
@@ -31,12 +35,17 @@ class TrendsAgent:
     
     def _estimate_price(self, keyword):
         """Estimate price based on product type"""
-        if 'air fryer' in keyword.lower():
+        keyword_lower = keyword.lower()
+        if 'air fryer' in keyword_lower:
             return 120
-        elif 'ice maker' in keyword.lower():
+        elif 'ice maker' in keyword_lower:
             return 78
-        elif 'chopper' in keyword.lower():
+        elif 'chopper' in keyword_lower:
             return 35
+        elif 'blender' in keyword_lower:
+            return 59
+        elif 'cold brew' in keyword_lower:
+            return 83
         else:
             return 50
     
@@ -53,16 +62,21 @@ class TrendsAgent:
             {"name": "Ice Maker Machine", "trend_score": 78, "price": 78, "margin": 48},
             {"name": "Vegetable Chopper", "trend_score": 72, "price": 35, "margin": 42},
             {"name": "Portable Blender", "trend_score": 68, "price": 59, "margin": 40},
-            {"name": "Cold Brew Maker", "trend_score": 65, "price": 83, "margin": 50}
+            {"name": "Cold Brew Maker", "trend_score": 65, "price": 83, "margin": 50},
+            {"name": "Garlic Press", "trend_score": 60, "price": 25, "margin": 45},
+            {"name": "Neck Fan", "trend_score": 75, "price": 48, "margin": 45}
         ]
     
     def get_formatted_for_master(self):
         products = self.get_trending_products()
-        return [{
-            'id': f"tr_{i}",
-            'name': p['name'],
-            'price': p.get('price', 50),
-            'margin': p.get('margin', 40),
-            'trend_score': p.get('trend_score', 50),
-            'amazon_trend': True
-        } for i, p in enumerate(products)]
+        formatted = []
+        for i, p in enumerate(products):
+            formatted.append({
+                'id': f"tr_{i}",
+                'name': p['name'],
+                'price': p.get('price', 50),
+                'margin': p.get('margin', 40),
+                'trend_score': p.get('trend_score', 50),
+                'amazon_trend': True
+            })
+        return formatted
