@@ -11,6 +11,7 @@ from agents.zambeel_agent import ZambeelScraper
 from agents.aliexpress_agent import AliExpressScraper
 from agents.tiktok_agent import TikTokViralAgent
 from agents.google_trends_agent import GoogleTrendsAgent
+from agents.trends_agent import TrendsAgent
 
 # ============================================================
 # TELEGRAM SENDER FUNCTION
@@ -19,12 +20,6 @@ def send_telegram(message):
     """Send message to Telegram"""
     token = os.environ.get("TELEGRAM_TOKEN")
     chat_id = os.environ.get("CHAT_ID")
-    
-    # Debug print
-    print(f"DEBUG: token exists = {token is not None}")
-    print(f"DEBUG: chat_id exists = {chat_id is not None}")
-    print(f"DEBUG: token = {token[:10] if token else 'None'}...")
-    print(f"DEBUG: chat_id = {chat_id}")
     
     if not token or not chat_id:
         print("⚠️ TELEGRAM_TOKEN or CHAT_ID not set in secrets")
@@ -38,13 +33,11 @@ def send_telegram(message):
             'parse_mode': 'HTML'
         }
         response = requests.post(url, json=payload, timeout=15)
-        
         if response.status_code == 200:
             print("✅ Telegram message sent!")
             return True
         else:
             print(f"❌ Telegram error: {response.status_code}")
-            print(f"   Response: {response.text[:200]}")
             return False
     except Exception as e:
         print(f"❌ Telegram exception: {e}")
@@ -64,22 +57,26 @@ class Orchestrator:
         self.aliexpress = AliExpressScraper()
         self.tiktok = TikTokViralAgent()
         self.google = GoogleTrendsAgent()
+        self.trends = TrendsAgent()
         
         print("\n✅ All agents initialized!\n")
     
     def run_full_scan(self):
         print("🔍 STEP 1: Collecting data...\n")
         
+        # Zambeel
         zambeel_products = self.zambeel.get_trending_products()
         zambeel_formatted = self.zambeel.get_formatted_for_master()
         self.master.add_products_batch(zambeel_formatted)
         print(f"   ✅ Added {len(zambeel_products)} products from Zambeel")
         
+        # AliExpress
         ae_products = self.aliexpress.get_hot_products()
         ae_formatted = self.aliexpress.get_formatted_for_master()
         self.master.add_products_batch(ae_formatted)
         print(f"   ✅ Added {len(ae_products)} products from AliExpress")
         
+        # TikTok
         tt_products = self.tiktok.get_viral_products()
         tt_formatted = self.tiktok.get_formatted_for_master()
         for tt in tt_formatted:
@@ -88,9 +85,17 @@ class Orchestrator:
                     existing['tiktok_views'] = tt.get('tiktok_views', 0)
         print(f"   ✅ Added viral data for {len(tt_products)} products")
         
-        trends = self.google.get_uae_trends()
-        print(f"   ✅ UAE Trends: {trends['hot_categories']}")
+        # Google Trends
+        trends_data = self.google.get_uae_trends()
+        print(f"   ✅ UAE Trends: {trends_data['hot_categories']}")
         
+        # Amazon Trends (new!)
+        trends_products = self.trends.get_trending_products()
+        trends_formatted = self.trends.get_formatted_for_master()
+        self.master.add_products_batch(trends_formatted)
+        print(f"   ✅ Added {len(trends_products)} products from Amazon Trends")
+        
+        # Score and rank
         print("\n📊 STEP 2: Scoring products...\n")
         top = self.master.get_top_products(5)
         
@@ -122,8 +127,7 @@ if __name__ == "__main__":
     print("="*60)
     
     # Send test message first
-    print("\n📤 Sending test message to Telegram...")
-    send_telegram("✅ Dropshipping Scanner is running! Processing products...")
+    print("\n📤 Sending products to Telegram...")
     
     # Send top products
     if top_products:
