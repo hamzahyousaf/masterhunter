@@ -2,5 +2,4 @@ requests
 pandas
 numpy
 pytrends
-TikTokApi
-playwright
+amazon-trends-api
