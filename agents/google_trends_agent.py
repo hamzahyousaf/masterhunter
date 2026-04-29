@@ -1,4 +1,4 @@
-# google_trends_agent.py - FIXED VERSION (404 + 429 solved)
+# google_trends_agent.py - FINAL FIXED VERSION
 from pytrends.request import TrendReq
 from datetime import datetime
 import time
@@ -8,12 +8,12 @@ import random
 class GoogleTrendsAgent:
     def __init__(self):
         self.name = "Google Trends Agent (Real)"
+
+        # FIX: retries aur backoff_factor REMOVE kiye — yahi method_whitelist error ka cause tha
         self.pytrends = TrendReq(
             hl='en-US',
-            tz=240,           # UAE timezone GMT+4
-            timeout=(10, 25),
-            retries=3,
-            backoff_factor=2  # 429 pe automatically wait karega: 2s, 4s, 8s
+            tz=240,
+            timeout=(10, 25)
         )
 
         self.CATEGORY_KEYWORDS = {
@@ -29,20 +29,16 @@ class GoogleTrendsAgent:
             "cleaning":          ['mop', 'vacuum', 'scrubber', 'spray', 'wash', 'dust'],
         }
 
-        # Sirf 2 groups — 429 se bachne ke liye
         self.PRODUCT_SEED_KEYWORDS = [
             ["portable fan", "air fryer", "hair removal"],
             ["phone stand", "home organizer", "car accessories"],
         ]
 
-    # ─────────────────────────────────────────────
     def get_uae_trends(self):
         try:
             trending_searches = self._get_trending_searches()
             time.sleep(random.uniform(3, 5))
-
             product_interest = self._get_product_interest()
-
             categories = self._detect_categories(trending_searches)
 
             return {
@@ -53,55 +49,44 @@ class GoogleTrendsAgent:
                 "timestamp":        datetime.now().isoformat(),
                 "data_source":      "real" if trending_searches else "smart_fallback"
             }
-
         except Exception as e:
             print(f"⚠️  Google Trends main error: {e}")
             return self._get_fallback_data()
 
-    # ─────────────────────────────────────────────
-    # FIX 1 — 3 methods try karo, jo kaam kare use karo
-    # ─────────────────────────────────────────────
     def _get_trending_searches(self):
-
-        # Try 1: Standard name
         try:
             df = self.pytrends.trending_searches(pn='united_arab_emirates')
             if df is not None and not df.empty:
-                print("   ✅ trending_searches: united_arab_emirates worked")
+                print("   ✅ trending_searches worked")
                 return df.head(15).values.flatten().tolist()
         except Exception as e:
-            print(f"   trending_searches (name) failed: {e}")
+            print(f"   trending_searches failed: {e}")
 
-        time.sleep(2)
+        time.sleep(3)
 
-        # Try 2: realtime endpoint
         try:
             df = self.pytrends.realtime_trending_searches(pn='AE')
             if df is not None and not df.empty:
                 titles = df['title'].head(15).tolist() if 'title' in df.columns else []
                 if titles:
-                    print("   ✅ realtime_trending_searches: AE worked")
+                    print("   ✅ realtime_trending_searches worked")
                     return titles
         except Exception as e:
             print(f"   realtime_trending_searches failed: {e}")
 
-        time.sleep(2)
+        time.sleep(3)
 
-        # Try 3: top_charts
         try:
             df = self.pytrends.top_charts(datetime.now().year - 1, hl='en-US', tz=240, geo='AE')
             if df is not None and not df.empty:
-                print("   ✅ top_charts: AE worked")
+                print("   ✅ top_charts worked")
                 return df['title'].head(15).tolist()
         except Exception as e:
             print(f"   top_charts failed: {e}")
 
-        print("   ⚠️  All trending methods failed")
+        print("   ⚠️  All trending methods failed — using smart fallback")
         return []
 
-    # ─────────────────────────────────────────────
-    # FIX 2 — Slow requests + smaller batches
-    # ─────────────────────────────────────────────
     def _get_product_interest(self):
         results = {}
         for keyword_group in self.PRODUCT_SEED_KEYWORDS:
@@ -109,7 +94,7 @@ class GoogleTrendsAgent:
                 self.pytrends.build_payload(
                     kw_list=keyword_group,
                     cat=0,
-                    timeframe='today 1-m',  # 30 days = more stable than 7-d
+                    timeframe='today 1-m',
                     geo='AE',
                     gprop=''
                 )
@@ -122,19 +107,17 @@ class GoogleTrendsAgent:
                                 results[kw] = score
                                 print(f"   ✅ {kw}: {score}/100")
 
-                # Random wait 4-8 seconds
                 wait = random.uniform(4, 8)
                 print(f"   Waiting {wait:.1f}s...")
                 time.sleep(wait)
 
             except Exception as e:
                 print(f"   ❌ interest_over_time {keyword_group}: {e}")
-                time.sleep(10)  # 429 pe extra wait
+                time.sleep(5)
                 continue
 
         return dict(sorted(results.items(), key=lambda x: x[1], reverse=True))
 
-    # ─────────────────────────────────────────────
     def _detect_categories(self, trends):
         found = {}
         for trend in trends:
@@ -142,31 +125,28 @@ class GoogleTrendsAgent:
             for category, keywords in self.CATEGORY_KEYWORDS.items():
                 if any(k in trend_lower for k in keywords):
                     found[category] = found.get(category, 0) + 1
-
         sorted_cats = sorted(found.items(), key=lambda x: x[1], reverse=True)
         return [cat for cat, _ in sorted_cats[:5]] or self._season_default_categories()
 
     def _season_default_categories(self):
-        season = self._detect_season()
         defaults = {
             "summer": ["cooling_gadgets", "kitchen_gadgets", "beauty_health"],
             "winter": ["home_organization", "fitness", "kitchen_gadgets"],
             "autumn": ["kitchen_gadgets", "beauty_health", "home_organization"],
             "spring": ["beauty_health", "fitness", "cleaning"],
         }
-        return defaults.get(season, ["kitchen_gadgets", "beauty_health"])
+        return defaults.get(self._detect_season(), ["kitchen_gadgets", "beauty_health"])
 
     def _detect_season(self):
         month = datetime.now().month
-        if 5 <= month <= 9:   return "summer"
-        elif 10 <= month <= 11: return "autumn"
+        if 5 <= month <= 9:             return "summer"
+        elif 10 <= month <= 11:         return "autumn"
         elif month == 12 or month <= 2: return "winter"
-        else: return "spring"
+        else:                           return "spring"
 
     def _get_fallback_data(self):
-        """Smart fallback — season-based, not fixed mock data"""
         season = self._detect_season()
-        season_data = {
+        data = {
             "summer": {
                 "categories": ["cooling_gadgets", "kitchen_gadgets", "beauty_health"],
                 "searches":   ["portable fan", "ice maker", "neck cooler", "mist fan", "air fryer"],
@@ -174,7 +154,7 @@ class GoogleTrendsAgent:
             },
             "winter": {
                 "categories": ["home_organization", "fitness", "kitchen_gadgets"],
-                "searches":   ["air fryer", "home organizer", "resistance band", "food processor"],
+                "searches":   ["air fryer", "home organizer", "resistance band"],
                 "interest":   {"air fryer": 78, "home organizer": 65, "resistance band": 55}
             },
             "autumn": {
@@ -187,8 +167,12 @@ class GoogleTrendsAgent:
                 "searches":   ["facial massager", "yoga mat", "resistance band"],
                 "interest":   {"facial massager": 70, "yoga mat": 65}
             }
-        }
-        data = season_data.get(season, season_data["summer"])
+        }.get(season, {
+            "categories": ["kitchen_gadgets", "beauty_health"],
+            "searches":   ["air fryer", "facial massager"],
+            "interest":   {"air fryer": 70}
+        })
+
         return {
             "current_season":   season,
             "hot_categories":   data["categories"],
@@ -203,7 +187,6 @@ if __name__ == "__main__":
     agent = GoogleTrendsAgent()
     print("Testing Google Trends Agent (UAE)...\n")
     result = agent.get_uae_trends()
-
     print(f"\n{'='*50}")
     print(f"Season:          {result['current_season']}")
     print(f"Data source:     {result['data_source']}")
